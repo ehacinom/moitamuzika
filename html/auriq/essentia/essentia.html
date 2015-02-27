@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<title>essentia</title>
+    <link href='http://fonts.googleapis.com/css?family=Chelsea+Market' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="/css/normalize.css" type="text/css"> <!-- has to be first -->
+	<link rel="stylesheet" href="/css/style.css" type="text/css">
+</head>
+<body>
+    <div class="scrollblock block-title">
+        <img src="/../img/LogoLightBackgroundTransparent.png" alt="" width="500" />
+        <br />
+        <p>just a simple guide for getting started with essentia2.0</p>
+        <a href="https://twitter.com/share" class="twitter-share-button" data-via="hiyume" data-size="large" data-url="http://54.172.148.225/auriq/essentia/" data-related="hiyume" data-hashtags="essentia">Tweet</a>
+        <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+        <p class="meta">
+            by <a href="http://abitoftheineffable.flavors.me/">Monica He</a>
+            <br />
+            credits to <a href="http://www.twitter.com/rogerdudler">@rogerdudler</a>, <a href="http://www.twitter.com/tfnico">@tfnico</a>, <a href="http://www.twitter.com/fhd">@fhd</a>, <a href="http://www.namics.com">Namics</a>
+            <br />
+            please report issues on <a href="https://github.com/ehacinom">github</a>
+        </p>
+        <img src="/../img/arrow.png" alt="" />
+    </div>
+    <a name="signup"></a>
+    <div class="scrollblock block-biglink"> 
+        <h2>sign up</h2>
+        <p>
+            <a href="http://www.auriq.net/essentia-free/">essentia account</a>
+        </p>
+    </div>
+    <a name="start"></a>
+    <div class="scrollblock block-darkblue">
+        <h2>start a local instance</h2>
+        <p>
+            Create a new directory, open it and execute<br />
+            <code>ess instance local</code><br />
+            Run the command<br />
+            <code>ess udbd stop</code><br />
+            to stop previous essentia servers.<br />
+        </p>
+    </div>
+    <a name="credentials"></a>
+    <div class="scrollblock block-white">
+       <h2>credentials</h2>
+       <p>
+           You will need to supply <br />
+           <code>$BUCKET</code> , <code>$DIR</code> , and <code>$CREDENTIALS</code><br />
+           from your corporate AWS account<br />
+           (the <strong>$</strong> and capitalization is unix-styling for shell variables).<br />
+       </p>
+       <p>
+           <code>$DIR</code> is the subdirectory of the <code>$BUCKET</code><br />
+           being scanned, and <code>$CREDENTIALS</code> is the path<br/>
+           to your S3 credentials file.<br />
+       </p>
+    </div>
+    <a name="select"></a>
+    <div class="scrollblock block-darkred">
+        <h2>select</h2>
+        <p>
+            Choose a target bucket with<br />
+            <code>ess datastore select</code><br />
+            and these parameters:<br />
+            <code>s3://$BUCKET/$DIR --credentials=$CREDENTIALS</code><br /><br />
+            Alternatively, on the local essentia installation, run<br/>
+            <code>ess datastore select $DIR</code><br/>
+       </p>
+       <p>
+            Clear previous datastores and categories from<br />
+            the local directory and the S3 bucket with<br />
+            <code>ess datastore purge</code><br />
+        </p>
+    </div>
+    <a name="scan"></a>
+    <div class="scrollblock block-lightred">
+        <h2>scan</h2>
+        <p>
+            Scan the files in your bucket with<br />
+            <code>ess datastore scan</code><br /><br />
+            <a href="http://stackoverflow.com/a/2759417/2553191">Regular expressions</a>, or <em>regex</em> strings, allow pattern-matching.<br />
+            Output the files with a certain regex pattern with<br />
+            <code>ess datastore ls $REGEX</code><br />
+        </p>
+    </div>
+    <a name="sort"></a>
+    <div class="scrollblock block-peach">
+        <h2>sort</h2>
+        <p>
+            Adding rules moves files away from the <em><strong>default</strong></em> category.<br />
+            You can apply a rule and create a <em><strong>category</strong></em> in essentia with<br />
+            <code>ess datastore rule add $REGEX $CATEGORY</code><br />
+            <code>ess datastore probe $CATEGORY --apply</code><br />
+            Show the results of <em>probe</em> by...<br />
+        </p>
+    </div>
+    <a name="summary"></a> 
+    <div class="scrollblock block-whitegray">
+        <h2>summarize</h2>
+        <p>
+            <code>ess datastore summary</code><br />
+            displays category information like the size and<br />
+            number of files, file compression, column delimiter,<br />
+            <a href="spec/">column specifications</a>, and details on how<br />
+            to access the date.<br />
+        </p>
+        <p>
+            The command also lists the rules that define each category,<br />
+            as well as the order (or <em>priority</em>) they will be applied to<br />
+            your bucket.<br />
+        </p>
+    </div>
+    <a name="change"></a> 
+    <div class="scrollblock block-lightblue">
+        <h2>change</h2>
+        <p>
+           The <em>probe</em> command leaves some category properties empty,<br />
+           but we can manually change them.<br />
+           <code>ess datastore category change</code><br />
+           takes three positional arguments,<br />
+           <code>$CATEGORY $COLUMN $VALUE</code><br />
+        </p>
+   </div>
+    <a name="push"></a> 
+    <div class="scrollblock block-lightred">
+        <h2>push to s3</h2>
+        <p>
+           <code>ess datastore push</code><br />
+           when you are content with the categorization.<br />
+        </p>
+   </div>
+
+    <a name="database"></a> 
+    <div class="scrollblock block-black">
+        <h2>create a database</h2>
+        <p>
+            <code>ess spec reset</code><br />
+            clear any previous database of the same name<br />
+            <code>ess spec drop database $DB</code><br />
+            and execute<br />
+            <code>ess spec create database $DB --ports $PORT_ID</code><br />
+            to assign a <em>port_id</em> to communicate to the newly created database.<br />
+        </p>
+    </div>
+    <a name="spec"></a> 
+    <div class="scrollblock block-whitegray">
+        <h2>column specifications</h2>
+        <p>
+           Each column can be given by <br />
+           <code>type[, attribute][, +NOZERO]: column_name</code><br />
+           where square brackets imply optional arguments,<br />
+           and there are specific <em>types</em> and <em>attributes</em>.<br />
+           For the spec definition sheet, see <a href="spec/">specifications</a>.<br />
+        </p>
+        <p>
+            Define your bucket specifications using<br />
+            <code>ess spec create vector $SPEC_NAME $SPEC</code><br />
+            <code>ess spec commit</code><br />
+        </p>
+    </div>
+    <a name="processing"></a> <!-- tagging -->
+    <div class="scrollblock block-lightblue">
+        <h2>processing</h2>
+        <p>
+            Essentia's strength comes from preprocessing that<br />
+            occurs <em>before</em> data is imported to your new database.<br />
+            (truth?)<br />
+            <a href="doc/aq_pp/">aq_pp</a> (<em>auriq-preprocessing</em>)
+            <br/> is called for importing and modifying data on the fly, and<br />
+            <a href="doc/aq_udb/">aq_udb</a> (<em>auriq-universal database</em>)<br />
+            is used for data cleanup when exporting to file.<br />
+        </p>
+    </div>
+    <a name="options"></a>
+    <div class="scrollblock block-darkblue"> 
+        <h2>processing options</h2>
+        <p>
+            A simple preprocessing command can be given as<br />
+            <code>aq_pp [options] $input $process $output</code><br />
+        </p>
+        <p>
+            To export to file from your database, run<br />
+            <code>aq_udb [options] $export $order $system</code><br />
+        </p>
+        <p>
+            For an exhastive list of processing options, see the <a href="doc/">documentation</a><br />
+            or enter <code>#COMMAND -h</code> for help.<br />
+        </p>
+        <p>
+            Finally, enclose these commands in double quotes, e.g.<br />
+            <code>$AQ_PP = "aq_pp -f,+1,eok etc."</code><br />
+            to escape spaces in your shell.
+        </p>
+    </div>
+    <a name="import"></a> 
+    <div class="scrollblock block-white">
+        <h2>import &amp; export</h2>
+        <p>
+            start the database server<br />
+            <code>ess udbd start</code><br />
+            process and import data from a category of files from your bucket<br />
+            <code>ess from $CATEGORY $AQ_PP</code><br />
+            cleanup and slim data and export to file<br />
+            <code>ess task exec $AQ_UDB</code><br />
+        </p>
+    </div>
+    <a name="examples"></a>
+    <div class="scrollblock block-lightred">
+        <h2>hints &amp; examples</h2>
+        <p>
+            choose a port id<br />
+            <code>example</code><br />
+            use spaces to separate columns when defining specifications<br />
+            <code>example</code><br />
+            examine the <em>example date</em> output of <em><strong>probe</strong></em> to guess<br />
+            at the value for the <em>dateFormat</em> column.<br />
+            <code>ess datastore probe CV</code><br />
+            Exclude logs with<br />
+            <code>ess datastore rule add $REGEX --ignore</code><br />
+        </p>
+    </div>
+    <a name="links"></a>
+    <div class="scrollblock block-littlelink">
+        <h2>links &amp; resources</h2>
+        <h3>background</h3>
+        <p>
+            <ul>
+                <li><a href="WHERE">fake test link</a></li>
+            </ul>
+        </p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<title>aq_pp</title>
+   <link href='http://fonts.googleapis.com/css?family=Chelsea+Market' rel='stylesheet' type='text/css'>
+   <link rel="stylesheet" href="/css/normalize.css" type="text/css">
+	<link rel="stylesheet" href="/css/style.css" type="text/css">
+</head>
+<body>
+   <div class="scrollblock block-title">
+       <img src="/../../../img/LogoLightBackgroundTransparent.png" alt="" width="500" />
+       <br />
+       <p>a look at <em>aq_pp</em>, auriq's csv preprocessor</p>
+       <p class="meta">
+          ~ go back to the <a href="/auriq/essentia/">essentia tutorial</a> ~ <br />
+       </p>
+   </div>
+    <a name="specfile"></a>
+    <div class="scrollblock block-biglink">
+        <h2>technical</h2>
+        <p>
+           <a href="aq_pp.txt">technical documentation file</a><br />
+        </p>
+        <p>
+           The original, technical specification file is the less<br />
+           colorful version of this page.<br />
+        </p>
+    </div>
+    <a name="basic"></a>
+    <div class="scrollblock block-peach">
+        <h2>basic operations</h2>
+        <p>
+           process input csv/tsv files with input <a href="/auriq/essentia/spec/">column spec</a></l><br />
+           output to csv or <a href="/auriq/essentia/doc/aq_udb/">udb</a><br />
+           type-checking of columns and rows<br />
+           processing<br />
+        </p>
+        <p>
+           <em><strong>aq_pp</strong></em> allows new derived columns,<br />
+           remapped column values, row selection and filtering, and more.<br />
+           Processing steps are performed in the order specified, allowing for<br />
+           further processing of the newly derived data set.<br />
+        </p>
+    </div>
+    <a name="usage"></a>
+    <div class="scrollblock block-lightred">
+        <h2>usage</h2>
+        <p>
+           Each <em><strong>aq_pp</strong></em> can be given by<br />
+           <code>aq_pp [-h] [options] $input $process $output</code><br />
+           where square brackets imply optional arguments,<br />
+           and there are options and parameters to specify for the<br />
+           <code>$input</code>, <code>$process</code>, and <code>$output</code>.<br />
+        </p>
+        <p>
+           The <code>-h</code> is a help option.
+        </p>
+    </div>
+    <a name="options"></a>
+    <div class="scrollblock block-white">
+        <h2>options</h2>
+        <p>
+            There are <em>seven</em> completely optional <code>options</code>.<br />
+            <code>-test</code>  test command line arguments and exit.<br />
+            <code>-verb</code>  IPv4/IPv6 address<br />
+        </p>
+        <p>
+            The rest are numerical.<br />
+            <code>i</code>  32-bit unsigned integer<br />
+            <code>is</code>   32-bit signed integer<br />
+            <code>l</code>  64-bit unsigned integer<br />
+            <code>ls</code>   64-bit signed integer<br />
+            <code>f</code>  double precision float<br />
+        </p>
+    </div>
+    <a name="attributes"></a>
+    <div class="scrollblock block-darkblue">
+        <h2>attributes</h2>
+        <p>
+           Keys mark columns for indexing, sorting, or merging.<br />
+           <code>pkey</code>/<code>hash</code> : <em>s</em> hash<br />
+           <code>tkey</code> <em>i</em> sort key<br />
+           <code>+key</code> <em>s</em> merge key<br />
+        </p>
+        <p>
+           Attributes that pair (?) with the merge key begin with a <code>+</code> sign.<br />
+           <code>+last</code> use latest imported value (default)<br />
+           <code>+first</code> use first imported value<br />
+        </p>
+        <p>
+           The rest are numerical attribute types.<br />
+           Given the exisiting value <em>A</em> and the new value <em>B</em>,<br />
+           <code>+add</code> A + B (allows string addition)<br />
+           <code>+bor</code> B bitwise-OR A<br />
+           <code>+min</code> min(A, B)<br />
+           <code>+max</code> max(A, B)<br />
+        </p>
+    </div>
+
+    <a name="hash"></a>
+    <div class="scrollblock block-lightblue">
+        <h2>hash</h2>
+        <p>
+            Each spec declaration has to have one <em>hashable</em>, <em>string</em> column.<br />
+            In a <em><strong>var</strong></em> spec, this column is implicit.<br />
+            <strong><em>vector</em></strong> and <em><strong>table</strong></em> specs require one column's attribute<br />
+            to be either <code>pkey</code> or <code>hash</code>.<br />
+        </p>
+    </div>
+
+    <a name="merging"></a>
+    <div class="scrollblock block-whitegray">
+        <h2>merging</h2>
+        <p>
+           The merge key, <code>+key</code>, does something not clear.<br />
+           If <em>+key</em> is not in any existing row, a new row will be added to the table.<br />
+           If a matching row is found, the imported row will be <em>merged</em> with the existing row.<br />
+        </p>
+    </div>
+
+    <a name="nozero"></a>
+    <div class="scrollblock block-lightred">
+        <h2>+nozero</h2>
+        <p>
+            <code>+nozero</code> <em>modifies</em> attributes;<br />
+            it doesn't import a specific datum/row if the value is equivalent<br />
+            to a numeric <code>0</code> or a blank string <code>""</code><br />
+        </p>
+    </div>
+
+    <a name="together"></a>
+    <div class="scrollblock block-darkred">
+        <h2>putting it together</h2>
+        <p>
+            stuff
+        </p>
+    </div>
+
+    <a name="command"></a>
+    <div class="scrollblock block-peach">
+        <h2>commands</h2>
+        <p>
+            Define your bucket specifications using<br />
+            <code>ess spec create vector $SPEC_NAME $SPEC</code><br />
+        </p>
+    </div>
+    
+    <a name="hints"></a>
+    <div class="scrollblock block-black">
+        <h2>hints</h2>
+        <p>
+            everything is case-insensitive but the column names you assign<br />
+            (truth?)<br />
+            column names do not need to be unique (?)<br />
+        </p>
+    </div>    
+    
+    
+    <a name="links"></a>
+    <div class="scrollblock block-littlelink">
+        <h2>links &amp; resources</h2>
+        <h3>background</h3>
+        <p>
+            <ul>
+                <li><a href="WHERE">fake test link</a></li>
+            </ul>
+        </p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,177 @@
+body {
+	background: #FFF;
+	font-family: Georgia, Times New Roman, Times, serif;
+	font-size: 30px;
+	text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+	font-size: 60px;
+	font-weight: normal;
+	margin: 0;
+    font-family: 'Chelsea Market', Georgia, serif;
+    color: #000;
+	line-height: 1;
+}
+
+h2 {
+	font-size: 70px;
+	font-weight: normal;
+	margin: 0;
+	color: #FFB000;
+    font-family: 'Chelsea Market', Georgia, serif;
+	text-transform: lowercase;
+}
+
+h3 {
+	font-size: 40px;
+	font-weight: normal;
+	margin: 0;
+    margin-top: 40px;
+	text-transform: lowercase;
+}
+
+p {
+	width: 960px;
+	margin: 40px auto;
+	color: #000;
+    line-height: 200%;
+}
+
+a, a:visited {
+	color: #000;
+    font-size: 12px;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+ul {
+	list-style: none;
+}
+
+.download {
+	padding: 10px;
+}
+
+pre {
+	font-size: 18px;
+}
+
+blockquote {
+	text-align: left;
+	width: 720px;
+	margin: 10px auto;
+	background: #C5C3DE;
+	border: solid 2px #69697A;
+	padding: 0 40px;
+}
+
+code {
+    background-color: #000;
+	font-style: normal;
+    border-radius: 10px;
+    color: white;
+    padding: 5px 15px;
+    font-family: menlo, monospace;
+}
+
+/*----------------------------------------  BLOCKS */
+
+.scrollblock {
+	position: relative;
+	margin: 0;
+	width: 100%;
+    color: white;
+    padding-top: 80px;
+    padding-bottom: 80px;
+}
+
+.scrollblock a { color: #ECB50B; font-size: 30px; }
+.scrollblock a:hover { text-decoration: underline; }
+.scrollblock .meta { font-size: 16px; color: #999; }
+.scrollblock .meta a { font-size: 16px; color: #333; }
+
+.block-title { background-color: #FFF; padding-bottom: 50px; }
+.block-title h2 { color: #000; }
+
+.block-biglink { background-color: #348fd4; }
+.block-biglink h2 { color: #06406c; }
+.block-biglink h2 a { background: none; padding: 0; font-size: normal; }
+.block-biglink a { color: #FFF; font-size: 40px; font-weight: normal;font-style: normal; background-color: #06406c; padding: 10px 15px; border-radius: 10px; text-decoration: none; }
+.block-biglink a:hover { text-decoration: underline; }
+
+.block-darkblue { background-color: #06406c; }
+.block-darkblue h2 { color: #FFF; }
+.block-darkblue p { color: #FFF; }
+.block-darkblue code { background-color: #000; color: #FFF; }
+
+.block-white { background-color: #FFF; }
+.block-white h2 { color: #000; }
+
+.block-darkred { background-color: #4c0d09; }
+.block-darkred h2 { color: #d3b2af; }
+.block-darkred p { color: #DDD; }
+.block-darkred code { color: #000; background-color: white; }
+
+.block-lightred { background-color: #cc4037; }
+.block-lightred h2, .block-add p { color: #4c0d09; }
+
+.block-black { background-color: #000; }
+.block-black h2 { color: #FFF; }
+.block-black p { color: #DDD; } /*gray not white*/
+.block-black code { color: #000; background-color: white; }
+
+.block-whitegray { background-color: #F2F2F2; } /*gray*/
+.block-whitegray h2 { color: #666; } /*dark gray*/
+
+.block-lightblue { background-color: #348fd4; } /*light blue*/
+.block-lightblue h2 { color: #06406c; } /*dark blue*/
+
+.block-examples { background-color: #06406c; }
+.block-examples h2 { color: #FFF; }
+.block-examples p { color: #FFF; }
+.block-examples code { background-color: #000; color: #FFF; }
+
+.block-peach { background-color: #ffc19f; }
+.block-peach h2 { color: #cc4037; }
+.block-peach a { color: #cc4037; }
+
+.block-littlelink h2 { color: #348fd4; }
+.block-littlelink h3 { color: #06406c }
+.block-littlelink ul { list-style: disc; margin: 0; padding: 0; }
+.block-littlelink ul li a { font-size: 24px; color: #cc4037; }
+
+/*These following are at the top and show links to download stuff*/
+/*.tower {
+    display: block;
+    width: 180px;
+    height: 260px;
+    position: absolute;
+    top: 330px;
+    right: 0;
+    background: #FFF url(../img/git-tower.png) no-repeat;
+}
+
+.cheatsheet {
+    display: block;
+    width: 180px;
+    height: 250px;
+    position: absolute;
+    top: 346px;
+    left: 0;
+    background: #FFF url(../img/cheatsheet.png) no-repeat;
+}
+
+.announcement {
+    margin-bottom: 40px;
+}
+
+.announcement img {
+    border-radius: 4px;
+}
+*/

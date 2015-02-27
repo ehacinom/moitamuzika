@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>when I'm missing you</title>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+        <script src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+        
+        <!-- html for center background image and class css style -->
+        <style>
+            * { margin: 0; padding: 0; }
+        		html { 
+        			background: url(/img/awesome/Carina_Nebula_Landscape.jpg) no-repeat center center fixed; 
+        			-webkit-background-size: cover;
+        			-moz-background-size: cover;
+        			-o-background-size: cover;
+        			background-size: cover;
+        		}
+            .fade { 
+               width: 485px; 
+               margin: 300px auto; 
+               padding: 20px; 
+               font-family: Georgia, serif;
+               font-style: oblique;
+               font-size: 2em;
+               color: white;
+               font-weight: 500;
+               /*background: pink;*/
+            }
+        </style>
+    </head>
+    <body>
+        <!-- the poem I am using -->
+        <div class="fade">
+           <p>
+              the days they pass so swiftly br 
+              the nights I don't remember br 
+              but when I lay beside you br 
+              a moment seems forever br 
+           </p>
+        </div>
+
+        <!-- Writing the html to fade letters -->
+        <script>
+           var $el = $(".fade:first"), text = $el.text(),
+               words = text.split(" ");
+
+           var html = "";
+           for (var i = 0; i < words.length; i++) {
+               if (words[i] == "br") { //needs space BEFORE and AFTER break tag "br"
+                  html += "</br>"
+               } else {
+                  html += "<span>" + words[i] + " </span>";
+               }
+           };
+           $el.html(html).children().hide().each(function(i){
+             $(this).delay(i*75).fadeIn(700);
+           });
+        </script>
+   
+        
+    </body>
+</html>

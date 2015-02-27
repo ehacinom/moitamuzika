@@ -1,0 +1,931 @@
+aq_pp 1.2.0
+============
+CSV Preprocessor
+
+Basic Operations
+----------------
+o Process one of more input CSV/TSV files with a given column spec.
+o Output result in CSV format or send data directly to Udb.
+o Columns are typed - numbers, string, IP and so on. Type checks are performed
+  at loading.
+o Records (or rows) are loaded one at a time from the input(s). As each record
+  is loaded, it is checked against the column spec - the number of fields must
+  match the spec and field values must match their corresponding column type.
+  If there is a record/column error, the program may abort or optionally skip
+  the bad record and continue.
+o A number of processing steps can be performed on each row. For example,
+  column values can be rewritten based on "mapping" rules, new columns can be
+  derived from other columns, filter can be set to select specific records
+  based on various column values, and so on.
+o The processing steps are performed in the order specified, forming a
+  "processing chain". For example, after a derived column has been added,
+  subsequent operations can make use of (or reference) that new column.
+
+
+General Description
+-------------------
+Usage> aq_pp [-h] Global_Opt Input_Spec Process_Spec Output_Spec
+
+Global_Opt:
+    [-test] [-verb] [-ddef] [-bz ReadBufSiz]
+    [-rx_syntax Syntax]
+    [-rownum StartNum]
+    [-emod ModSpec]\n\
+Input_Spec:
+    [-fileid FileId] [-f[,AtrLst] File [File ...]] [-d ColSpec [ColSpec ...]]
+    [-fileid FileId] [-cat[,AtrLst] File ColSpec [ColSpec ...]]
+    [-cmb[,AtrLst] File ColSpec [ColSpec ...]]
+Process_Spec:
+    [-var ColSpec Val]
+    [-evlc ColSpec|ColName Expr]
+    [-mapf[rx][,AtrLst] ColName MapFrom] [-mapc ColSpec|ColName MapTo]
+    [-kenc ColSpec|ColName ColName [ColName ...]]
+    [-kdec ColName ColSpec|ColName[+] [ColSpec|ColName[+] ...]]
+    [-filt FilterSpec]
+    [-map[rx][,AtrLst] ColName MapFrom MapTo]
+    [-sub[,AtrLst] ColName File]
+    [-grep[,AtrLst] ColName File]
+    [-pmod ModSpec]
+Output_Spec:
+    [[-o[var][,AtrLst] File] [-c ColName [ColName ...]] [-notitle]]
+    [-udb [-spec UdbSpec] -imp TabName [-seg N1[-N2]/N] [-nobnk] [-nonew]
+     [-mod ModSpec]]
+
+
+Option "-test"
+--------------
+o No parameter.
+o Test command line arguments and exit.
+o If all specs are good, the exit code will be 0.
+o If there is an error, the exit code will be non-zero. Usually, an error
+  message will also be printed to stderr.
+o If the option is specified twice ("-test -test"), a more throughout test
+  will be attempted. For example, the program will try to load support files,
+  connect to remote servers, and so on.
+
+
+Option "-verb"
+--------------
+o No parameter.
+o Verbose. Print program progress to stderr while processing.
+o Usually, a marker is printed for each 10,000,000 records processed.
+
+
+Option "-ddef"
+--------------
+o No parameter.
+o Support implicit columns for Udb import.
+o This is useful when one or more columns required by the target Udb table are
+  missing from the main data set. If "-ddef" is set, a 0 or blank value will
+  be given to the missing columns. In general, "-var" or "-evlc" can be used
+  to declare and set values of the missing columns.
+o The "PKEY" column in a Udb table cannot be implicit.
+
+
+Option "-bz ReadBufSiz"
+-----------------------
+o Set input buffer length.
+o It is also the maxium record length. If a record exceeds this length, it is
+  considered broken and will cause the program to abort or the record to be
+  discarded.
+o Default length is 64KB. Use this option if a longer record is expected.
+o ReadBufSiz is a number (bytes).
+
+Example:
+  bash# aq_pp ... -bz 131072 ...
+Use 128K buffer.
+
+
+Option "-rx_syntax Syntax"
+--------------------------
+o Set the syntax used for any subsequent RegEx. RegEx can be used in various
+  "mapping" and filtering operations.
+o Syntax is one of these values:
+  o none - No particular syntax (default).
+  o extended - Uses POSIX Extended Regular Expression syntax.
+  o newline - Apply certain newline matching restrictions.
+o Generally, set this option once before any RegEx is used. It is also possible
+  to change syntax within the processing chain; new syntax will affect
+  operations specified afterwards.
+
+Example:
+  bash# aq_pp ...Op0...
+        -rx_syntax extended ...Op_1...
+        -rx_syntax none ...Op2...
+Op0 will not use any particular syntax, Op1 will use "grep" syntax, Op2 is
+reset back to no particular syntax.
+
+
+Option "-rownum StartNum"
+-------------------------
+o Set starting value for the builtin variable "$RowNum" used in "-evlc"
+  evaluation rules.
+o StartNum is the index of the first row.
+o Default starting row index is 1.
+
+For a usage example, see the "-evlc" option description.
+
+
+Option "-emod ModSpec"
+----------------------
+o Specify an eval module to load. This type of module provides custom functions
+  that can be called in subsequent "-evlc" spec.
+o ModSpec is "ModName[:argument]" where "ModName" is the logical module name
+  and "argument" is a module specific parameter string.
+o aq_pp will look for "emod/ModName.so" in the directory where aq_pp is
+  installed. For example, if aq_pp is installed as "/SomeDirectory/aq_pp",
+  aq_pp will load "/SomeDirectory/emod/ModName.so".
+o Multiple eval modules can be specified.
+o In case the same "-evlc" function is supported by multiple modules, the one
+  from the last "-emod ..." spec will take precedence.
+o See emod/* documents for a description of the functions they provide.
+
+
+Option "-fileid FileId"
+-------------------------
+o Set a file ID (number) on the input files that follow this option. This ID
+  DOES NOT increment automatically. Use additional "-fileid" option to
+  change the ID for the input files that follow.
+o Input files that use this ID are ones from the "-f" and "-cat" options.
+o The file ID can be retrieved with the builtin variable "$FileId" used in
+  "-evlc" evaluation rules.
+o Default file ID is 1.
+
+For a usage example, see the "-evlc" option description.
+
+
+Option "-f[,AtrLst] File [File ...]"
+------------------------------------
+o Set the input file(s) defining the main data set.
+o File is an input CSV/TSV file. If the input comes from stdin, set File to
+  "-" (a single dash).
+o Optional attributes are described in Appendix B.
+
+Example:
+  bash# aq_pp ... -f,+1l,eok file1 -f file2 ...
+File1 and file2 can have different attributes.
+
+
+Option "-d ColSpec [ColSpec ...]"
+---------------------------------
+o Define the columns for the main data set.
+o Columns must be given in the order they appear in the input file(s).
+o ColSpec has the form "Type[,AtrLst]:ColName".
+o Types are:
+  o S - String.
+  o F - Double precision floating point.
+  o L - 64-bit unsigned integer.
+  o LS - 64-bit signed integer.
+  o I - 32-bit unsigned integer.
+  o IS - 32-bit signed integer.
+  o IP - v4/v6 address.
+  o X[Type] - marks an unwanted input column. Type can be one or the above;
+    default is "S" if not specifiec. ColName is not needed.
+o Optional attributes are:
+  o esc - Denote that the input field uses '\' as escape character. Data
+    exported from databases (e.g. MySQL) sometimes use this format. Be careful
+    when dealing with multibyte character set because '\' can be part of a
+    multibyte sequence.
+  o noq - Denote that the input field is not quoted. Any quotes in or around
+    the field are considered part of the field value.
+  o hex - For numeric type. Denote that the input field is in hexdecimal
+    notation. Starting "0x" is optional. For example, "100" is converted to 256
+    instead of 100.
+  o trm - Trim leading/trailing spaces from input field value.
+  o lo|up - For 'S' type. Convert input field to lower or upper case.
+o ColName restrictions:
+  o It must not exceed 31 bytes long.
+  o Must contain alphanumeric and '_' characters only. The first character
+    cannot be a digit.
+  o It is case insensitive. However, this spec may change in the future.
+o Maximum number of non 'X' type columns is 256.
+
+Note: Optional ColSpec attributes only apply to input data. They cannot be
+used on the "derived" columns discussed later.
+
+Example:
+  bash# aq_pp ... -d s:Col1 s,lo:Col2 i,trm:Col3 ...
+Col1 is a string. Col2 also a string, but the input value will be converted
+to lower case. Col3 is an unsigned integer, the "trm" attribute removes blanks
+around the value before it is converted to an internal number.
+
+
+Option "-cat[,AtrLst] File ColSpec [ColSpec ...]"
+-------------------------------------------------
+o Add rows from File to main set.
+o File contains data to be loaded. ColSpecs are the columns in the file.
+  Optional attributes are described in Appendix B.
+o The file may contain different columns than the main set.
+  o Columns that have the same names in both data sets are common columns.
+  o Columns that are not common to both sets are set to zero or blank.
+o Combined result will have columns from both sets.
+
+Example:
+  bash# aq_pp ... -d s:Col1 s:Col2 i:Col3 s:Col4 ...
+        -cat more.csv i:Col3 s:Col1 s:Col5 s:Col6
+        ...
+Add data more.csv. Column Col3 and Col1 are common. Main set does not have
+Col5 and Col6, so they are set to blank in rows from the main set. On the
+other hand, more.csv does not have Col2 and Col4, so they are set to blank
+in rows from more.csv. The resulting data set (new main set) will have columns
+Col1, Col2, Col3, Col4, Col5 and Col6.
+
+
+Option "-cmb[,AtrLst] File ColSpec [ColSpec ...]"
+-------------------------------------------------
+o Combine (row-wise) lookup table into main data set by joining rows in
+  main set with rows from the lookup table based on key column values.
+o File contains data to be combined into main set. ColSpecs are the columns
+  in the file. Optional attributes are:
+  o Input file attributes described in Appendix B.
+  o ncas - Do case insensitive match (default is case sensitive).
+  o req - Discard unmatched records.
+o Columns that have the same names in both data sets are the combine keys.
+o Keys should be unique among all records in the lookup table.
+o Combined result will have columns from both sets.
+
+Example:
+  bash# aq_pp ... -d s:Col1 s:Col2 i:Col3 s:Col4 ...
+        -cmb lookup.csv i:Col3 s:Col1 s:Col5 s:Col6
+        ...
+Combine lookup.csv into main data set according to composite key <Col3, Col1>.
+The resulting data set (new main set) will have columns Col1, Col2, Col3, Col4,
+Col5 and Col6.
+
+
+Option "-var ColSpec Val"
+-------------------------
+o Define a new variable and initialize its value to Val.
+o A variable stores a value that persists over the entire run. Recall that
+  normal column values change from row to row.
+o ColSpec is the variable's spec in the form "Type:ColName" where Type
+  is the data type and "ColName" is the variable's name. See the "-d" option
+  for more info.
+o Val is the literal value to initialize the variable to. Since Val is not
+  an expression, there is no need to enclose string value in double quotes.
+
+Example:
+  bash# aq_pp ... -d i:Col1 ... -var 'i:Var1' 0 ...
+        -evlc 'Var1' 'Var1 + Col1' ...
+        -evlc 'i:RollingSum' 'Var1'
+Initialize variable Var1 to 0, then use it to do rolling sum.
+
+
+Option "-evlc ColSpec|ColName Expr"
+-----------------------------------
+o Derive a new column and set its value to the evaluated result of an
+  expression. Alternately, save the result to an existing column/variable.
+  o ColSpec is the spec of the derived column.
+    o For a column, see ColSpec described under "-d" above.
+  o ColName refers to a previously defined column/variable.
+o Expr is the expression to evaluate.
+  o If ColSpec is used, the new column cannot participate in Expr.
+  o If ColName is used, the existing column can participate in Expr.
+o Data type of the evaluated result must be compatible with the data type of
+  the new column. For example, string data for a string column and
+  numeric data for a numeric column.
+o IP address type is NOT supported in this operation.
+o Operands in the expression can be the names of previously defined columns or
+  variables, numeric/string constants, and builtin variables or functions.
+o Use '(' and ')' to group operations as appropriate.
+o For a numeric type evaluation, supported operators are
+  '*', '/', '%', '+', '-', '&', '|' and '^'.
+  o Depending on the operand type, evaluation may use 64-bit floating point
+    arithmetic or 64-bit signed integral arithmetic. For example, "1 + 1" is
+    evaluated using integral arithmetic while "1.0 + 1" is evaluated using
+    floating point arithmetic. Similarly, "1 + Col1" may use either arithmetic
+    depending on Col1's type while "1.0 + Col1" always uses floating point.
+  o String and numeric types can be converted to a specific numeric type using
+    the "ToF()" or "ToI()" function.
+  o Operator "precedency" is NOT supported. Please use '(' and ')' to group
+    operations as appropriate.
+o For a string type evaluation, supported operator is '+' for concatenation.
+  o Numeric types can be converted to a string type using the "ToS()" function.
+
+Example:
+  bash# aq_pp ... -d i:Col1 ... -evlc l:Col_evl 'Col1 * 10' ...
+Set new column Col_evl to 10 times the value of Col1.
+
+Buitin variable:
+o $Random
+  o A random number (postive integer).
+o $RowNum
+  o Represent the output row index.
+  o First row is 1 by default. Change initial value using "-rownum" commandline
+    option.
+o $FileId
+  o Represent the file ID assigned to the current input file being processed
+    via the "-fileid" option.
+
+Example:
+  bash# aq_pp -rownum 101 ... -d i:Col1 ... -evlc i:Seq '$RowNum' ...
+Set starting row index to 101 and set new column Seq to the row index.
+
+  bash# aq_pp -fileid 1 -f file1 -d i:Col1 ... -evlc i:Id '$FileId'
+        -fileid 2 -cat file2 ...
+After file1 and file2 are concatenated together, the new "Id" column will
+have a value of 1 or 2 depending on which input file the record came from.
+
+Builtin functions
+o ToF(Val)
+  o Val can be a string/numeric column's name, a literal string/number,
+    or an expression that evaluates to a string/number.
+  o Return the floating point value of Val.
+o ToI(Val)
+  o Val can be a string/numeric column's name, a literal string/number,
+    or an expression that evaluates to a string/number.
+  o Return the integral value of Val.
+o ToS(Val)
+  o Val can be a numeric column's name, a literal number,
+    or an expression that evaluates to a number.
+  o Return the string representation of Val.
+o Min(Val1, Val2)
+  o Val1/Val2 can be a numeric column's name, a literal number,
+    or an expression that evaluates to a number.
+  o Return the lesser of Val1 and Val2.
+o Max(Val1, Val2)
+  o Val1/Val2 can be a numeric column's name, a literal number,
+    or an expression that evaluates to a number.
+  o Return the greater of Val1 and Val2.
+o SHash(Val)
+  o Val can be a string column's name, a literal string,
+    or an expression that evaluates to a string.
+  o Return the numeric hash value of the string.
+o SLeng(Val)
+  o Val can be a string column's name, a literal string,
+    or an expression that evaluates to a string.
+  o Return the length of the string.
+o DateToTime(DateVal, DateFmt)
+  o DateVal can be a string column's name, a literal string,
+    or an expression that evaluates to a string.
+  o DateFmt is a string that specifies the format of DateVal. It must be a
+    literal quoted with double quotes. The format is a combination of these
+    conversion codes:
+    o Y: 1-4 digit year.
+    o m: month in 1-12.
+    o d: day of month in 1-31.
+    o H: hour in 0-23 or 1-12.
+    o M: minute in 0-59.
+    o S: second in 0-59.
+    o p: AM/PM (case insensitive).
+    o .: (a dot) for any one character not used in conversion.
+  o Return UNIX time in integral seconds.
+  o This conversion is timezone dependent. Set the timezone appropriately
+    (TZ environment) when running the program.
+o TimeToDate(TimeVal, DateFmt)
+  o TimeVal can be a numeric column's name, a literal number,
+    or an expression that evaluates to a number.
+  o DateFmt is a string that specifies the format of the output. It must be a
+    literal quoted with double quotes. See the strftime() C function manpage
+    regarding the format string.
+  o Return a date string. The string's maximum length is 128.
+  o This conversion is timezone dependent. Set the timezone appropriately
+    (TZ environment) when running the program.
+
+Example:
+  bash# aq_pp ... -d s:Col1 s:Col2 ...
+        -evlc is:Dt 'DateToTime(Col2, "Y.m.d.H.M.S.p") - DateToTime(Col1, "Y.m.d.H.M.S.p")' ...
+Col1 and Col2 are date strings of the form "Year/Month/day Hour:Min:Sec AM".
+Dt column evaluates the time difference in seconds.
+
+
+Option "-mapf[rx][,AtrLst] ColName MapFrom"
+Option "-mapc ColSpec|ColName MapTo"
+-------------------------------------------
+o Extract data from a string column using "-mapf" or "-mapfrx".
+o Derive a new column using "-mapc" and set its value to certain combination
+  of the extracted data. Alternately, save the result to an existing
+  column/variable.
+o In "-mapf[rx]", ColName is a previously defined column to extract data from.
+  MapFrom defines the extraction rule. With "-mapf", use RT's mapping syntax
+  in MapFrom; with "-mapfrx", use GNU RegEx syntax. Optional attributes are:
+  o ncas - Do case insensitive pattern match (default is case sensitive).
+o In "-mapc",
+  o ColSpec is the spec of the derived column (must be string).
+  o ColName is a previously defined column/variable (must be string).
+  o MapTo is the rendering spec.
+o "-mapc" can be used without any "-mapf[rx]". In this case, the MapTo spec
+  must be a constant (does not depend on extracted data).
+o Any number of "-mapf[rx]" (0 or more) can be used with any number of
+  "-mapc" (1 or more).
+o See Appendix D1, D2 and D3 regarding mapping syntax.
+
+Example:
+  bash# aq_pp ... -d s:Col1 s:Col2 s:Col3 ...
+        -mapf Col1 '%%v1_beg%%.%%v1_end%%'
+        -mapfrx Col2 '\(.*\)-\(.*\)'
+        -mapfrx Col3 '\(.*\)_\(.*\)'
+        -mapc s:Col_beg '%%v1_beg%%,%%1%%,%%4%%'
+        -mapc s:Col_end '%%v1_end%%,%%2%%,%%5%%'
+        ...
+Extract data from Col1, Col2 and Col3, then put "parts" of those columns in
+2 new columns. Note that the RegEx based "-mapfrx" does not have named
+placeholders for the extracted data; The placeholders are implicit:
+o %%0%% - Reference the entire match in first "-mapfrx" (not used in example).
+o %%1%% - Reference the 1st subpattern match in first "-mapfrx".
+o %%2%% - Reference the 2nd subpattern match in first "-mapfrx".
+o %%3%% - Reference the entire match in second "-mapfrx" (not used in example).
+o %%4%% - Reference the 1st subpattern match in second "-mapfrx".
+o %%5%% - Reference the 2nd subpattern match in second "-mapfrx".
+
+
+Option "-kenc ColSpec|ColName ColName [ColName ...]"
+----------------------------------------------------
+o Create (encode) a "key" column given by ColSpec from one or more columns
+  given by ColName(s). Alternately, save the result to an existing
+  column/variable.
+  o ColSpec is the spec of the derived column (must be string).
+  o ColName is a previously defined column/variable (must be string).
+o The key column must have string type.
+o Each source ColName must refer to a previously defined column; it can have
+  any data type.
+o Note that the resulting "encoded" key will contain binary data.
+
+Example:
+  bash# aq_pp ... -d s:Col1 i:Col2 ip:Col3 ...
+        -kenc s:Key1 Col1 Col2 Col3
+        ...
+Compose a new "composite" column Key1 from Col1, Col2 and Col3.
+
+
+Option "-kdec ColName ColSpec|ColName[+] [ColSpec|ColName[+] ...]"
+------------------------------------------------------------------
+o Extract (decode) a "key" column given by ColName into one or more columns
+  given by ColSpec (new column) or ColName (existing column/variable).
+o The key ColName must refer to a previously defined string column/variable.
+o For the extract-to columns, each ColSpec may refer to a derived column or a
+  column with a blank column name. A "+" can be added to the end of a ColSpec
+  or ColName to signify encoding the extracted column value back to the key.
+  Here are the possible extract specs:
+  o [Type:]ColName - Normal derived/existing column spec. Column value will be
+    extracted into the column.
+  o [Type:]ColName+ - Normal derived/existing column spec with a "+" appended.
+    Column value will be extracted into the column. In additional, the
+    extracted value will also be encoded back into the key.
+  o Type: - Blank column name. Extracted value will not be used.
+  o Type:+ - Blank column name with a "+" appended. The extracted value will
+    be encoded back into the key.
+o Note that the extract-to column types must match those used in "-kenc" in
+  exactly the same order.
+
+Example:
+  bash# aq_pp ... -d s:Key1 ...
+        -kdec Key1 s:Col1 i:Col2 ip:Col3
+        ...
+Extract Col1, Col2 and Col3 from Key1.
+
+  bash# aq_pp ... -d s:Key1 ...
+        -kdec Key1 s: i:Col2 ip:
+        ...
+Extract only Col2 from Key1. Since there is no "+" in the extract-to spec,
+the value of Key1 is NOT altered.
+
+  bash# aq_pp ... -d s:Key1 ...
+        -kdec Key1 s: i:Col2+ ip:+
+        -kdec Key1 i: ip:Col3
+        ...
+In the first rule, Col2 is extracted from Key1. At the same time, the 2nd and
+3rd fields are encoded back into Key1. In the second rule. Col3 is extracted
+from the new value of Key1.
+
+
+Option "-filt FilterSpec"
+-------------------------
+o Filter (or select) records base on FilterSpec.
+o FilterSpec is a logical expression that evaluates to either True or False
+  for each record. If True, the record is selected; otherwise, it is discarded.
+o FilterSpec has the basic form "LHS <compare> RHS".
+o LHS can be a column/variable name or an expression to evaluate:
+  o Column/variable name is case insensitive. It must not be quoted.
+  o Evaluation has the form "Eval(Expr)" where Expr is the expression to
+    evaluate. See "-evlc" description regarding evaluation related syntax.
+o RHS can be a column/variable name or a literal value:
+  o Column/variable name is case insensitive. It must not be quoted.
+  o Literal string must be quoted with double quotes.
+  o Literal numeric value must not be quoted.
+o Supported <compare> operators are:
+  o "==" - LHS equals RHS. Applies to string or numeric columns.
+  o "===" - LHS equals RHS with case insensitive comparison. String only.
+  o "!=", "!==" - Negation of the above.
+  o "~~" - LHS matches RHS pattern. LHS must be a string column and RHS must be
+    a pattern spec containing '*' (any number of bytes) and '?' (any 1 byte).
+  o "~~~" - Same as "~~" but does case insensitive match.
+  o "!~", "!~~" - Negation of the above.
+  o "##" - LHS matches RHS pattern. LHS must be a string column and RHS must
+    be a GNU RegEx.
+  o "###" - Same as "##" but does case insensitive match.
+  o "!#", "!##" - Negation of the above.
+  o ">", "<", ">=", "<=" - Comparison operators for numeric columns only.
+  o "&=" - Perform a (LHS & RHS) == RHS check, for numeric columns only.
+  o "!&=" - Negation of the above.
+  o "&" - Perform a (LHS & RHS) != 0 check, for numeric columns only.
+  o "!&" - Negation of the above.
+o More complex expression can be constructed by using '(...)' (grouping),
+  '!' (negation), '||' (or) and '&&' (and). For example,
+  "LHS_1 == RHS_1 && !(LHS_2 == RHS_2 || LHS_3 == RHS_3)".
+o String literal on the RHS must be quoted with double quotes. '\' is used in
+  the string to esacpe any literal '\' and double quote.
+  For the pattern spec in "~~" and "!~", literal '*' and '?' must also be
+  escaped with a '\'.
+
+Example:
+  bash# aq_pp ... -d s:Col1 s:Col2 i:Col3 s:Col4 ...
+        -filt 'Col1 === Col4 && Col2 != "" && Col3 >= 100'
+        ...
+Only keep records whose Col1 and Col4 are the same (case insensitive) and
+Col2 is not blank and Col3's value is greater than or equal to 100.
+
+
+Option "-map[rx][,AtrLst] ColName MapFrom MapTo"
+------------------------------------------------
+o Remap (a.k.a., rewrite) a string column's value.
+o ColName is a previously defined column. MapFrom is the extraction rule.
+  MapTo is the rendering rule. With "-map", use RT's mapping syntax in MapFrom;
+  with "-mapfrx", use GNU RegEx syntax. Optional attributes are:
+  o ncas - Do case insensitive pattern match (default is case sensitive).
+o Operation is the same as a "-mapf[rx]" and "-mapc" combination except that
+  MapFrom and MapTo are now applied to the same column.
+o See Appendix D1, D2 and D3 regarding mapping syntax.
+
+Example:
+  bash# aq_pp ... -d s:Col1 ...
+        -map Col1 '%%v1_beg%%-%*' 'beg=%%v1_beg%%'
+        ...
+  bash# aq_pp ... -d s:Col1 ...
+        -maprx Col1 '\(.*\)-*' 'beg=%%1%%'
+        ...
+Both examples rewrite Col1 in the same way.
+
+
+Option "-evl ColName Expr"
+--------------------------
+*** OBSOLETE option. Use "-evlc" instead ***
+o Same as "-evlc".
+
+
+Option "-sub[,AtrLst] ColName File"
+-----------------------------------
+o Update the value of a string column/variable according to a lookup table.
+o ColName is a previously defined column/variable. File contains the
+  lookup table.  Optional attributes are:
+  o Input file attributes described in Appendix B.
+  o ncas - Do case insensitive match (default is case sensitive).
+  o pat - Support '?' and '*' wild cards in the "From" value. Literal '?',
+    '*' and '\' must be escaped by a '\'. Without this attribute, "From" value
+    is assumed constant and no escape is necessary.
+  o req - Discard records not matching any entry in the lookup table.
+    Normally, column value will remain unchanged if there is no match.
+o The lookup table must contain 2 columns. The first must be the "From" value
+  used to match the column value. The second must be the "To" value.
+o "From" value is generally a constant. Patterns can also be used, see "pat"
+  attribute description above.
+o "To" value is always a constant.
+o Matches are carried out according to order of the match value in the lookup
+  table, stopping at the first match. If the lookup table contains both exact
+  values and patterns, then:
+  1) Exact values are matched first, skipping over any interleaving patterns.
+  2) Patterns are matched next, skipping over any interleaving fixed values.
+
+Example:
+  bash# aq_pp ... -d s:Col1 ... -sub Col1 lookup.csv ...
+Substitute Col1 according to lookup table.
+
+
+Option "-grep[,AtrLst] ColName File"
+------------------------------------
+o Like filtering, but matches a single column/variable against a list of
+  values from a lookup table.
+o ColName is a previously defined column/variable. File contains the
+  lookup table.  Optional attributes are:
+  o Input file attributes described in Appendix B.
+  o ncas - Do case insensitive match (default is case sensitive).
+  o pat - Support '?' and '*' wild cards in the "From" value. Literal '?',
+    '*' and '\' must be escaped by a '\'. Without this attribute, match value
+    is assumed constant and no escape is necessary.
+  o rev - Reverse logic, select records that do not match.
+o The lookup table must contain a single column containing the value to match.
+o Match value is generally a constant. Patterns can also be used, see "pat"
+  attribute description above.
+o See "-sub" above for a description of the match order.
+
+Example:
+  bash# aq_pp ... -d s:Col1 ... -grep,rev Col1 lookup.csv ...
+Select (or retain) only records whose Col1 values are not in lookup table.
+
+
+Option "-pmod ModSpec"
+----------------------
+o Specify a row processing module to load. This type of module provides custom
+  row processing logic.
+o Only one such module can be specified.
+o ModSpec is "ModName[:argument]" where "ModName" is the logical module name
+  and "argument" is a module specific parameter string.
+o aq_pp will look for "pmod/ModName.so" in the directory where aq_pp is
+  installed. For example, if aq_pp is installed as "/SomeDirectory/aq_pp",
+  aq_pp will load "/SomeDirectory/pmod/ModName.so".
+o The custom row processing logic is applied to each row after all the built-in
+  processing rules (from command line) are done and before the row is output.
+o See pmod/sample.c in source package for a description of this module works.
+
+
+Option "[-o[,AtrLst] File] [-c ColName [ColName ...]] [-notitle]"
+-----------------------------------------------------------------
+o Output data rows to a file or stdout.
+o Applicable options must be given in the above order; i.e., "-o", then "-c",
+  then other attributes.
+o "-o[,AtrLst] File" sets the output attribute and file name.
+  o File is the output file name. If this option is not used or if file is "-"
+    (a single dash), data will be written to stdout. Optional attributes are
+    described in Appendix C.
+o "-c ColName [ColName ...]" selects columns from the main data set and
+  variables to output for the most recent "-o".
+  o ColName refers to a previously defined column/variable.
+o If a "-o" is specified without a "-c", all columns in the main set
+  (including derived columns) are automatically selected. Note that variables
+  are not automatically included.
+o If a "-c" is specified without a previous "-o", stdout is assumed.
+o The following attribute apply to the most recent output spec:
+  o "-notitle" suppresses the column name label row from the output. The label
+    row is otherwise included by default.
+o Multiple sets of "-o ... -c ..." can be specified.
+
+Example:
+  bash# aq_pp ... -d s:Col1 s:Col2 s:Col3 ... -o,esc,noq - -c Col2 Col1
+Output Col2 and Col1 (in that order) to stdout in a format suitable for
+Amazon Cloud.
+
+
+Option "[-ovar[,AtrLst] File] [-c ColName [ColName ...]] [-notitle]"
+--------------------------------------------------------------------
+o Output the final variable values to a file or stdout. That is, a single data
+  row is output.
+o Variables are those defined using the "-var" option.
+o Applicable options must be given in the above order; i.e., "-ovar", then "-c",
+  then other attributes.
+o "-ovar[,AtrLst] File" sets the output attribute and file name.
+  o File is the output file name. If this option is not used or if file is "-"
+    (a single dash), data will be written to stdout. Optional attributes are
+    described in Appendix C.
+o "-c ColName [ColName ...]" selects variables to output for the most recent
+  "-ovar".
+  o ColName refers to a previously defined variable.
+o If a "-ovar" is specified without a "-c", all variables are automatically
+  selected.
+o The following attribute apply to the most recent output spec:
+  o "-notitle" suppresses the column name label row from the output. The label
+    row is otherwise included by default.
+o Multiple sets of "-ovar ... -c ..." can be specified.
+
+Example:
+  bash# aq_pp ... -d i:Col1 i:Col2 ... -var i:Sum1 0 -var i:Sum2 0 ...
+        -evlc Sum1 'Sum1 + Col1' -evlc Sum2 'Sum2 + (Col2 * Col2)' ...
+        -ovar - -c Sum1 Sum2
+Calculate sums and output their evaluates at the end of processing.
+
+
+Option "-udb [-spec UdbSpec] -imp TabName [-seg N1[-N2]/N] [-nobnk] [-nonew] [-mod ModSpec]"
+--------------------------------------------------------------------------------------------
+o Output data directly to Udb (i.e., a Udb import).
+o "-udb" marks the beginning of Udb specific options. Do not use other aq_pp
+  options after this.
+  Note: Current version does not enforce this, but future versions may.
+o The Udb options must be given in the above order; i.e., "-spec",
+  then "-imp", then other attributes. Multiple sets of "-spec ... -imp ..."
+  can be specified.
+o "-spec UdbSpec" sets the Udb spec file for subsequent "-imp" options.
+  o If this is not given before any "-imp", the default spec file "udb.spec"
+    (in the current work directory) will be used.
+  o If needed, another "-spec" can be used for another "-imp" requiring
+    a different spec.
+  o See the sample udb.spec file for spec syntax.
+o "-imp TabName" specifies an import operation.
+  o TabName set the table in the spec to import data to.
+  o TabName is case insensitive. It must not exceed 31 bytes long.
+  o Columns from the main data set and variables matching the columns of
+    TabName are automatically selected for import.
+  o See "-ddef" if one or more columns in the target table are missing from
+    the main data set.
+o The following attributes apply to the most recent Udb import spec:
+  o "-seg N1[-N2]/N" applies sampling by selecting segment N1 or segment N1 to
+    N2 (inclusive) out of N segments of unique users from the input data to
+    import. Users are segmented based on the hash value of the user key.
+    For example, "-seg 2-4/10" will divide users into 10 segments and import
+    segments 2, 3 and 4; segments 1 and 5-10 are discarded.
+  o "-nobnk" excludes records with a blank user key from the import.
+  o "-nonew" tells the server not to create any new user during this import.
+    Records belonging to users not yet in the DB are discarded.
+  o "-mod ModSpec" specifies a module to load on the server side.
+    ModSpec is "ModName[:argument]" where "ModName" is the logical module name
+    and "argument" is a module specific parameter string. Server will try to
+    load "mod/ModName.so" in the server directory.
+
+
+Appendix A - Exit Status
+------------------------
+If successful, the program exits with status 0. Otherwise, the program exits
+with a non-zero status code along error messages printed to stderr.
+Applicable exit codes are:
+0 - Successful.
+1-9 - Program initial preparation error.
+10-19 - Input file load error.
+20-29 - Result output error.
+30-39 - Udb server connection/communication error.
+
+
+Appendix B - Input File Attributes
+----------------------------------
+Each input file can have these attributes (separated by commas):
+o eok - Make error non-fatal. If there is an input error, program will try to
+  skip over bad/broken records. If there is a record processing error, program
+  will just discard the record.
+o qui - Quiet; i.e., do not print any input/processing error message.
+o tsv - Input is in TSV format (default is CSV).
+o bin - Input is in binary format (default is CSV).
+o esc - '\' is an escape character in input fields (CSV or TSV).
+o noq - No quotes around fields (CSV).
+o +Num[b|r|l] - Specifies the number of bytes ('b' suffix), records ('r'
+  suffix) or lines (no suffix or 'l' suffix) to skip before processing.
+
+By default, input files are assumed to be in formal CSV format. Use the
+"tsv", "esc", and "noq" attributes to set input characteristics as needed.
+
+
+Appendix C - Output File Attributes
+-----------------------------------
+Some output file can have these attributes (separated by commas):
+o bin - Input in binary format (default is CSV).
+o esc - Use '\' to escape ',', '"' and '\' (CSV).
+o noq - Do not quote string fields (CSV).
+o app - Append to file; otherwise, file is overwritten by default.
+
+By default, output is in CSV format. Use the "esc" and "noq" attributes to set
+output characteristics as needed.
+
+
+Appendix D1 - RT MapFrom Syntax
+-------------------------------
+RT style MapFrom is used in both "-mapf" and "-map" options. The MapFrom
+spec is used to match and/or extract data from a string (a column value).
+
+It has this general syntax:
+o A literal:
+    <literal>
+  This is the same as string value comparison.
+o A literal and wild cards:
+    <literal_1>%*<literal_2>%?<literal_3>
+  Here, "%*" matches any number of bytes and "%?" matches any 1 byte.
+  This is like a pattern comparison.
+o A variable:
+    %%myVar%%
+  Extract the value into a variable named "myVar". "myVar" can later be
+  used in the MapTo spec.
+o Literal and variable combinations:
+    <literal_1>%%myVar%%<literal_2>
+    %%myVar_1%%<literal>%%myVar_2%%
+    ...
+  This is the normal way to extract specific parts.
+o Case sensitive or insensitive toggling:
+    <literal_1>%=<literal_2>%=<literal_3>
+  "%=" is used to toggle case sensitive/insensitive match. In the above case,
+  if "-mapf" or "-map" did not have the "ncas" attribute, then "literal_1"'s
+  match will be case sensitive, but "literal_2"'s will be case insensitive,
+  and "literal_3"'s will be case sensitive again.
+o Escape character '\':
+    \%\%not-a-var\%\%%%myVar%%this-is-a-backslash\\the-rest
+  If a '%' is used in such a way that matches the MapFrom syntax, the '%'
+  must be escaped. A '\' must always be escaped. On the other hand, '\' has
+  no special meaning within a variable spec (described below).
+
+Each variable "%%var%%" can have additional attributes. The general form of
+a variable spec is:
+  %%VarName[:@class][:[chars]][:min[-max]][,brks]%%
+where
+o "VarName" is the variable name which can be used in MapTo. VarName can be a
+  "*"; in this case, the extracted data is not stored, but the extraction
+  attributes are still honored.
+  Note: Do not use numbers as a RT mapping variable name.
+o ":@class" restricts the exctracted data to belong to a class of characters.
+  "class" is a code with these values and meanings:
+  o n - Characters 0-9.
+  o a - Characters a-z.
+  o b - Characters A-Z.
+  o c - All printable ASCII characters.
+  o x - The opposite of "c" above.
+  o s - All whitespaces.
+  o g - Characters in "{}[]()".
+  o q - Single/double/back quotes.
+  Multiple classes can be used; e.g., "%%myVar:@nab%% for all alphanumerics.
+o ":[chars]" ("[]" is part of the syntax) is similar to character class above
+  except that the allowed characters are set explicitly. Note that ranges
+  cannot be used so that all characters must be specified. For example,
+  "%%myVar:[0123456789abcdefABCDEF]%%" (same as "%%myVar:@n:[abcdefABCDEF]%%")
+  for hex digits. To include a ']' as one of the characters, put it first,
+  as in "%%myVar:[]xyz]%%".
+o ":min[-max]" is the min and optional max length (bytes, inclusive) to extract.
+  Without a max, the default is unlimited (actually ~64Kb).
+o ",brks" defines a list of characters at which extraction of the variable
+  should stop. For example, "%%myVar,,;:%%" will extract data into myVar until
+  one of ",;:" or end-of-string is encountered. This usuage is often followed
+  by a wild card, as in "%%myVar,,;:%%%*".
+
+
+Appendix D2 - RegEx MapFrom Syntax
+----------------------------------
+Regular expression style MapFrom is used in both "-mapfrx" and "-maprx" options.
+The MapFrom spec is used to match and/or extract data from a string (a column
+value).
+
+Difference between RegEx mapping and RT mapping:
+o RT pattern always matches the entire string, while RegEx pattern matches a
+  substring by default. To get the same behavior, add "^" and "$" to the
+  beginning and end of a RegEx as in "^pattern$".
+o RegEx MapFrom does not have named variables for the extracted data. Instead,
+  extracted data is put into implicit variables "%%0%%", "%%1%%", and so on.
+  See the description under option "-mapfrx" for a usage example.
+
+Regular Expression is very powerful but also complex. Please consult the
+GNU RegEx manual for details.
+
+
+Appendix D3 - MapTo Syntax
+--------------------------
+MapTo is used in "-mapc", "-map" and "-maprx". It renders the data extracted
+by MapFrom into a column. Both RT and RegEx MapTo share the same syntax.
+
+It has this general syntax:
+o A literal:
+    <literal>
+  This is the same as string value comparison.
+o A variable:
+    %%myVar%%
+  Substitute the value of "myVar".
+o Literal and variable combinations:
+    <literal_1>%%myVar%%<literal_2>
+    %%myVar_1%%<literal>%%myVar_2%%
+    ...
+  This is the normal way to render extracted data.
+o Escape character '\':
+    \%\%not-a-var\%\%%%myVar%%this-is-a-backslash\\the-rest
+  If a '%' is used in such a way that matches the MapTo syntax, the '%'
+  must be escaped. A '\' must always be escaped. On the other hand, '\' has
+  no special meaning within a variable spec (described below).
+
+Each variable "%%var%%" can have additional attributes. The general form of
+a variable spec is:
+  %%VarName[:cnv][:start[:length]][,brks]%%
+where
+o "VarName" is the variable to substitute in.
+o ":cnv" sets a conversion method on the data in the variable. Note that the
+  data is first subjected to the length and break considerations before the
+  conversion. Supported conversions are:
+  o "b64" - Apply base64 decode.
+  o "url[n]" - Apply URL decode. Optional "n" is a number between 1-99. It is
+    the number of times to apply URL decode.
+  Normally, only use 1 conversion. If both are specified (in any order), URL
+  decode is always done before base64 decode.
+o ":start" is the starting byte position of the extracted data to substitute.
+  The first byte has position 0. Default is 0.
+o ":length" is the number of bytes (from "start") to substitute. Default is
+  till the end.
+o ",brks" defines a list of characters at which substitution of the variable's
+  value should stop.
+
+See the description under option "-mapfrx" for a usage example.
+
+
+Appendix E - Conditional Option Group
+-------------------------------------
+Some of the data processing options can be placed in conditional groups such
+that different processing rules can be applied depending on the logical result
+of another rule. The basic form of a conditional group is:
+
+  -if[not] RuleToCheck [RuleToRun ...]
+  [-elif[not] RuleToCheck [RuleToRun ...]]
+  [-else RuleToRun [RuleToRun ...]]
+  -endif
+
+Groups can be nested to form more complex conditions. Rules that can be used
+in this way are "-cmb", "-evlc", "-mapf", "-mapc", "-kenc", "-kdec", "-filt",
+"-map", ""-sub" and "-grep". Note that some of these rules can be used
+to set "derived" columns. If such rules get skipped conditionally, numeric 0 or
+blank string will be assigned to the uninitialized columns.
+
+There are 2 additional special rules, "-true" and "-false". They always
+evaluate to true/false, no data processing is involved.
+
+Example:
+  bash# aq_pp ... -d i:Col1 ...
+        -if -filt 'Col1 == 1' -evlc s:Col2 '"Is-1"'
+        -elif -filt 'Col1 == 2' -false
+        -else -evlc Col2 '"Others"'
+        -endif
+        ...
+Set Col2's value based on Col1's. In addition, discard any record with Col1==2.
+
+Note: Older versions also have a "-if" option that works like this:
+
+  ... -if FilterSpec RuleToRun ...
+
+This should be converted to the new syntax as:
+
+  ... -if -filt FilterSpec RuleToRun -endif ...

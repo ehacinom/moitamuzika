@@ -1,0 +1,417 @@
+aq_udb 1.2.0
+=============
+CSV to/from Udb database server
+
+Basic Operations
+----------------
+o aq_udb is a client of the Udb server. It is used to send command to the
+  servers to manipulate and/or export the data.
+o Data manipulation can be done using builtin options or through custom
+  "modules" that are dynamically loaded on the server side.
+o Data export can be done with filtering rules to select the desired data.
+o aq_udb can also instruct the servers to clear portion or all of the stored
+  data.
+
+Note: Data import to Udb servers is done by another tool called aq_pp.
+
+
+General Description
+-------------------
+Usage> aq_udb [-h] Global_Opt Export_Spec|Order_Spec|Mnt_Spec
+
+Global_Opt:
+    [-test] [-verb]
+    [-spec UdbSpec]
+    [-server AdrSpec [AdrSpec ...]]
+Export_Spec:
+    -exp TabName|-cnt TabName|-scn TabName|-exp_usr|-cnt_usr|-scn_usr
+    [-lim_usr Num] [-lim_rec Num]
+    [-var ColName Val]
+    [-pp[,ActSpec] TabName
+      [-pp_var ColName Val] ...
+      [-pp_evlc[,ActSpec] ColName Expr] ...
+      [-pp_filt[,ActSpec] FilterSpec] ...
+    ]
+    [-filt FilterSpec]
+    [-mod ModSpec]
+    [-o[,AtrLst] File] [-c ColName [ColName ...]] [-notitle]
+Order_Spec:
+    -ord TabName|-ord_all [-dec]
+Mnt_Spec:
+    -clr TabName|-clr_all|-probe
+
+
+Option "-test"
+--------------
+o No parameter.
+o Test command line arguments and exit.
+o If all specs are good, the exit code will be 0.
+o If there is an error, the exit code will be non-zero. Usually, an error
+  message will also be printed to stderr.
+o If the option is specified twice ("-test -test"), a more throughout test
+  will be attempted. For example, the program will try to load support files,
+  connect to remote servers, and so on.
+
+
+Option "-verb"
+--------------
+o No parameter.
+o Verbose. Print program progress to stderr while processing.
+o Usually, a marker is printed for each 10,000,000 records processed.
+
+
+Option "-spec UdbSpec"
+----------------------
+o Set the Udb spec file.
+o Default spec file is "udb.spec" in the current directory.
+o File contains server IPs (or domain names) and data table descriptions.
+o Specs are line-based. Blank lines or lines starting with a "#" are ignored.
+o See "udb.spec.sample" for a full description.
+
+
+Option "-server AdrSpec [AdrSpec ...]"
+--------------------------------------
+o Set target server(s) override in the form "IP[:Port]" or "Domain[:Port]".
+o If this is given, server spec in Udb spec file will be ignored.
+
+
+Option "-exp TabName"
+Option "-cnt TabName"
+Option "-scn TabName"
+---------------------
+o Perform a table export for the table/vector named TabName.
+o TabName must exist in the Udb spec file.
+o TabName is case insensitive. It must not exceed 31 bytes long.
+o "-exp" exports the table rows.
+o "-cnt" exports the unique user count and row count instead.
+o "-scn" only scan the user buckets and table rows. There is no default output.
+  o If used with a module, the module can optionally output custom data.
+
+
+Option "-exp_usr"
+Option "-cnt_usr"
+Option "-scn_usr"
+-----------------
+o Perform a user export.
+o "-exp_usr" exports the unique user names.
+o "-cnt_usr" exports the unique user count instead.
+o "-scn_usr" only scan the user buckets. There is no default output.
+  o If used with a module, the module can optionally output custom data.
+
+
+Option "-lim_usr Num"
+Option "-lim_rec Num"
+---------------------
+o Limit export output to the given Num. Default is 0, meaning no limit.
+o "-lim_usr" limits the unuque user count.
+o "-lim_rec" limits the record count.
+
+
+Option "-var ColName Val"
+-------------------------
+o Set the value of column ColName in the Var table to Val.
+o A Var table must be defined in the Udb spec file. The given ColName
+  must be a column in that table. See "udb.spec.sample" for details.
+o Val is the literal value to initialize the column to. Since Val is not
+  an expression, there is no need to enclose string value in double quotes.
+o Var table columns can also be altered by "-pp_var", "-pp_evlc" and modules.
+o Var table column values are persistent until a "-clr var" or "-clr_all"
+  operation, at which point all columns are reset to 0 or blank.
+
+Example:
+  bash# aq_udb ... -var Var1 0 ...
+Initialize Var1 in Var table to 0.
+
+
+Option "-pp[,ActSpec] TabName [-pp_var ... -pp_evlc ... -pp_filt ...]"
+----------------------------------------------------------------------
+o "-pp" groups one or more "-pp_var", "-pp_evlc" and/or "-pp_filt" actions
+  together.
+o The group performs pre-processing at the user bucket level before
+  exporting/counting any data. It applies to the user bucket itself or
+  table data in each bucket.
+o TabName is the target table data to examine for all the "-pp_*" actions in
+  the group.
+  o To reference the user bucket itself, use the special table name "Bucket".
+    The only column in this pseudo table is "name" - the username.
+o For each user bucket, "-pp" groups are executed in the order they are
+  specified in the commandline.
+o For each "-pp" group, the "-pp_var" rules are executed first. Then table
+  TabName is scanned, and for each row, the list of "-pp_evlc" and "-pp_filt"
+  rules are executed in order.
+o Optional ActSpec specifies the action to take at the end of a scan.
+  The spec is a single character code with these possible values:
+  o '0' to '9' - Number of "-pp" groups to skip over. 0 means to process the
+          next "-pp" group. 1 means skip over 1 group, and so on.
+  o 'p' - Jump to the next "-pp" group. Same as '0'.
+  o 'y' - Yes. Jump to export/count processing.
+  o 'n' - No. Skip the current user bucket.
+  The default ActSpec is "p".
+o Multiple "-pp" group can be specified.
+
+
+Option "-pp_var ColName Val"
+----------------------------
+o Part of a "-pp" group.
+o Same as "-var", but the initialization is done at the beginning of the
+  execution of the "-pp" group in each user bucket.
+
+See "-pp_evlc" for a usage example.
+
+
+Option "-pp_evlc[,ActSpec] ColName Expr"
+----------------------------------------
+o Part of a "-pp" group.
+o For each user bucket, evaluate expression Expr for each data row of the
+  "-pp" table. Then place the result in the column identified by ColName.
+o ColName can be a column in the "-pp" table or the Var table.
+o Expr is the expression to evaluate. It may refer to columns in the "-pp"
+  table, builtin variables, and columns in the Var table. See "aq_pp" manual
+  regarding evaluation expression syntax.
+o The expression Expr is evaluated for each data row.
+o Optional ActSpec specifies the action to take after the evaluation.
+  The spec consists of 2 single character codes:
+  o 1st code defines the action to take if the evaluation is successful.
+  o 2nd code defines the action to take if the evaluation failed.
+  Possible action codes are:
+  o '0' to '9' - Number of rules to skip over. 0 means to process the next rule
+          in the group. 1 means skip over 1 rule, and so on.
+  o 'r' - Jump to the next row.
+  o 'p' - Jump to the next "-pp" group, skipping all remaining rules in the
+          group.
+  o 'y' - Yes. Jump to export/count processing.
+  o 'n' - No. Skip the current user bucket.
+  The default ActSpec is "0n".
+o This option can be specified multiple times.
+
+Example:
+  bash# aq_udb -exp Test
+        -pp Test -pp_var Var1 0
+                 -pp_evlc Var1 'Var1 + 1' -pp_evlc c3 'Var1'
+Assign a per bucket sequence number to column c3 of table Test before exporting
+it. Var1 must be a (numeric) column defined in the Var table in the Udb spec
+file. Note that it is set to 0 at the beginning of each user bucket before Test
+is scanned.
+
+
+Option "-pp_filt[,ActSpec] FilterSpec"
+---------------------------------------
+o Part of a "-pp" group.
+o For each user bucket, evaluate filter FilterSpec for each data row of the
+  "-pp" table. Then determine what to do with the row based on the filter
+  result (true/false) and ActSpec.
+o FilterSpec is the filter to evaluate. It may refer to columns in the "-pp"
+  table, builtin variables, and columns in the Var table.
+  See Appendix D for FilterSpec description.
+o Optional ActSpec specifies the action to take based on the filter result.
+  The spec consists of 2 single character codes:
+  o 1st code defines the action to take if the result is True.
+  o 2nd code defines the action to take if the result is False.
+  Possible action codes are:
+  o '0' to '9' - Number of rules to skip over. 0 means to process the next rule
+          in the group. 1 means skip over 1 rule, and so on.
+  o 'r' - Jump to the next row.
+  o 'p' - Jump to the next "-pp" group, skipping all remaining rules in the
+          group.
+  o 'y' - Yes. Jump to export/count processing.
+  o 'n' - No. Skip the current user bucket.
+  The default ActSpec is "0n".
+o This option can be specified multiple times.
+
+Example:
+  bash# aq_udb -exp Test
+        -pp 'Bucket' -pp_filt 'Eval(SHash(name) % 100) == 0'
+This is a way to select a subset of users. Assuming that the user name hash is
+uniformly distributed, this example selects 1/100th of the user pool.
+
+Example:
+  bash# aq_udb -exp Test
+        -var Var1 0 ...
+        -pp Test -pp_filt,10 't > 123456789'
+                 -pp_evlc,rr c3 '0'
+                 -pp_evlc Var1 'Var1 + 1' -pp_evlc c3 'Var1'
+Assign a sequence number to column c3 if 't > 123456789' or 0 otherwise.
+
+Example:
+  bash# aq_udb -exp Test
+        -pp,n 'Test2' -pp_filt,pp 'True'
+A way to only export buckets whose Test2 are not empty.
+
+
+Option "-filt FilterSpec"
+-------------------------
+o Filter (or select) records from the table being exported/counted base on
+  FilterSpec.
+o The filter is evaluated for each data row.
+o If the result is True, the row is exported/counted. If False, the row is
+  skipped.
+o Only one such filter can be specified.
+o See Appendix D for FilterSpec description.
+
+Example:
+  bash# aq_udb -exp Test
+        -filt 't > 123456789'
+Only export rows of Test with 't > 123456789'.
+
+
+Option "-mod ModSpec"
+---------------------
+o Specify a module to load on the server side.
+o ModSpec is "ModName[:argument]" where "ModName" is the basename of the module
+  (without path and ".so" extension) and "argument" is a module specific
+  parameter string.
+o Server will try to load "mod/ModName.so" in the server directory.
+
+
+Option "-o[,AtrLst] File"
+-------------------------
+o Set the output attribute and file name.
+o File is the output file name. If this option is not used or if file is "-"
+  (a single dash), data will be written to stdout. Optional attributes are
+  described in Appendix C.
+
+Example:
+  bash# aq_udb -exp Test ... -o,esc,noq -
+Output to stdout in a format suitable for Amazon Cloud.
+
+
+Option "-c ColName [ColName ...]"
+---------------------------------
+o Select columns (by names) from the table/vector to output.
+o Use this to change the default export behavior (export all columns as defined
+  in the spec file).
+
+Example:
+  bash# aq_udb -exp Test ... -c user_cookie t
+Output only the username and time columns.
+
+
+Option "-notitle"
+-----------------
+o No parameter.
+o Suppress the column name label row from the output. The label row is
+  included by default.
+
+
+Option "-ord TabName"
+Option "-ord_all"
+---------------------
+o Sort records according to the time key ("tkey" column).
+o Records are sorted in ascending time by default (i.e., oldest records
+  appear first)
+o With "-ord", only the records corresponding to TabName are sorted.
+o TabName must exist in the Udb spec file.
+o TabName is case insensitive. It must not exceed 31 bytes long.
+o With "-ord_all" all tables with a time key are sorted.
+
+
+Option "-dec"
+-------------
+o Sort option.
+o Sort records in descending time (i.e., most recent records appear first).
+
+
+Option "-clr TabName"
+Option "-clr_all"
+---------------------
+o Remove/reset data from the database.
+o With "-clr", only the records corresponding to TabName are removed/reset.
+  o TabName must exist in the Udb spec file.
+  o TabName is case insensitive. It must not exceed 31 bytes long.
+  o When used on a table, the records are removed.
+  o When used on a vector table, the records are reset.
+  o When used on the Var table (i.e., TabName is "var"), the record is reset.
+o With "-clr_all" all table data and table definition are removed. All users
+  will be removed as well. In other words, the database will be empty.
+
+
+Option "-probe"
+---------------
+o Probe the servers and exit.
+o If all servers responded "successful", the exit code will be 0.
+o If a connection failed or a server responded "failure", the exit code will be
+  non-zero. Usually, an error message will also be printed to stderr.
+o Use this along with "-verb" to get more info.
+
+
+Appendix A - Exit Status
+------------------------
+If successful, the program exits with status 0. Otherwise, the program exits
+with a non-zero status code along error messages printed to stderr.
+Applicable exit codes are:
+0 - Successful.
+1-9 - Program initial preparation error.
+10-19 - Input file load error.
+20-29 - Result output error.
+30-39 - Udb server connection/communication error.
+
+
+Appendix B - Input File Attributes
+----------------------------------
+Each input file can have these attributes (separated by commas):
+o eok - Make error non-fatal. If there is an input error, program will try to
+  skip over bad/broken records. If there is a record processing error, program
+  will just discard the record.
+o qui - Quiet; i.e., do not print any input/processing error message.
+o tsv - Input is in TSV format (default is CSV).
+o bin - Input is in binary format (default is CSV).
+o esc - '\' is an escape character in input fields (CSV or TSV).
+o noq - No quotes around fields (CSV).
+o +Num[b|r|l] - Specifies the number of bytes ('b' suffix), records ('r'
+  suffix) or lines (no suffix or 'l' suffix) to skip before processing.
+
+By default, input files are assumed to be in formal CSV format. Use the
+"tsv", "esc", and "noq" attributes to set input characteristics as needed.
+
+
+Appendix C - Output File Attributes
+-----------------------------------
+Some output file can have these attributes (separated by commas):
+o bin - Input in binary format (default is CSV).
+o esc - Use '\' to escape ',', '"' and '\' (CSV).
+o noq - Do not quote string fields (CSV).
+o app - Append to file; otherwise, file is overwritten by default.
+
+By default, output is in CSV format. Use the "esc" and "noq" attributes to set
+output characteristics as needed.
+
+
+Appendix D - Filter Spec
+------------------------
+o FilterSpec is a logical expression that evaluates to either True or False
+  for each record. If True, the record or user is selected; otherwise, the
+  record or user is skipped.
+o FilterSpec has the basic form "LHS <compare> RHS".
+  o The special forms "True" or "False" can also be used.
+o LHS can be a column name or an expression to evaluate:
+  o Column name is case insensitive. It must not be quoted.
+  o Evaluation has the form "Eval(Expr)" where Expr is the expression to
+    evaluate. See "aq_pp" manual regarding evaluation expression syntax.
+o RHS can be a column name or a literal value:
+  o Column name is case insensitive. It must not be quoted.
+  o Literal string must be quoted with double quotes.
+  o Literal numeric value must not be quoted.
+o Supported <compare> operators are:
+  o "==" - LHS equals RHS. Applies to string or numeric columns.
+  o "===" - LHS equals RHS with case insensitive comparison. String only.
+  o "!=", "!==" - Negation of the above.
+  o "~~" - LHS matches RHS pattern. LHS must be a string column and RHS must be
+    a pattern spec containing '*' (any number of bytes) and '?' (any 1 byte).
+  o "~~~" - Same as "~~" but does case insensitive match.
+  o "!~", "!~~" - Negation of the above.
+  o "##" - LHS matches RHS pattern. LHS must be a string column and RHS must
+    be a GNU RegEx.
+  o "###" - Same as "##" but does case insensitive match.
+  o "!#", "!##" - Negation of the above.
+  o ">", "<", ">=", "<=" - Comparison operators for numeric columns only.
+  o "&=" - Perform a (LHS & RHS) == RHS check, for numeric columns only.
+  o "!&=" - Negation of the above.
+  o "&" - Perform a (LHS & RHS) != 0 check, for numeric columns only.
+  o "!&" - Negation of the above.
+o More complex expression can be constructed by using '(...)' (grouping),
+  '!' (negation), '||' (or) and '&&' (and). For example,
+  "LHS_1 == RHS_1 && !(LHS_2 == RHS_2 || LHS_3 == RHS_3)".
+o String literal on the RHS must be quoted with double quotes. '\' is used in
+  the string to esacpe any literal '\' and double quote.
+  For the pattern spec in "~~" and "!~", literal '*' and '?' must also be
+  escaped with a '\'.

@@ -1,0 +1,38 @@
+<!-- http://nginx.org/en/docs/http/ngx_http_status_module.html -->
+
+upstream backend {
+    zone upstream_backend 64k;
+
+    server backend1.example.com weight=5;
+    server backend2.example.com;
+}
+
+proxy_cache_path /data/nginx/cache_backend keys_zone=cache_backend:10m;
+
+server {
+    server_name backend.example.com;
+
+    location / {
+        proxy_pass http://backend;
+        proxy_cache cache_backend;
+
+        health_check;
+    }
+
+    status_zone server_backend;
+}
+
+server {
+    listen 127.0.0.1;
+
+    location /upstream_conf {
+        upstream_conf;
+    }
+
+    location /status {
+        status;
+    }
+
+    location = /status.html {
+    }
+}

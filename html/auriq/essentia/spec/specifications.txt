@@ -1,0 +1,116 @@
+# Disclaimer:
+# Sourced 2014-10-23 from 
+# https://github.com/auriq/dpb/blob/master/120/DPb/docs/udb-1.2.0.spec.sample
+# NOTE:
+# Another valid option for 'pkey' is 'hash'
+
+# "@Server:" starts the server spec:
+# o Server spec is lines of server destination spec in the form "IP[:Port]" or
+#   "Domain[:Port]".
+# o Port is needed when a non-default port is used, see "@Port" spec below.
+#
+@Server:
+127.0.0.1
+127.0.0.1:10011
+[::127.0.0.1]:10012
+a.b.com
+a.b.com:10011
+
+# "@Port:port" set the port number for any servers without a port spec.
+# Optional, default is 10010.
+#
+@Port:10010
+
+# "@Table:TableName" starts a table spec:
+# o TableName is case insensitive.
+# o Table spec is lines of column spec in the form "Type[,Atr]:ColName".
+# o Column Type's are:
+#   o S - String.
+#   o F - Double precision floating point.
+#   o L - 64-bit unsigned integer.
+#   o LS - 64-bit signed integer.
+#   o I - 32-bit unsigned integer.
+#   o IS - 32-bit signed integer.
+#   o IP - v4/v6 address.
+# o Column Atr's are:
+#   o PKEY - Must be "S" type. Mark the "bucket key". One column in the table
+#            MUST have this attribute.
+#   o TKEY - Must be "I" type. Mark the sort key (e.g., time).
+#   o +KEY - Must be "S" type. Mark the merge key used during import.
+#            If the merge key in the imported row is not in any existing row,
+#            a new row will be added to the table. On the other hand, if a
+#            matching row is found, the imported row will be "merged" with the
+#            existing row. The default per-column "merge" action is "+LAST".
+#            See the following "+*" attributes for details.
+#   o +FIRST - Use the first imported value.
+#   o +LAST - Use the latest imported value. This is the default merge action.
+#   o +ADD - For numeric/string column. Add/append new value to existing value.
+#   o +BOR - For numeric column. Bitwise-OR new value with existing value.
+#   o +MIN - For numeric column. Use the lesser of new and existing value.
+#   o +MAX - For numeric column. Use the greater of new and existing value.
+#   o +NOZERO - Modify the behavior of "+*" actions. Do not use imported value
+#            if it is equivalent to a numeric 0 or a blank string.
+#
+@Table:MyTable
+i,tkey:t
+l:c1
+l:c2
+i:c3
+s,pkey:user_cookie
+s:c5
+i:c6
+i:c7
+i:c8
+s:c9
+s:c10
+s:page
+s:query
+s:c13
+s:c14
+s:referrer_site
+s:search_key
+
+# "@Vector:TableName" starts a vector table spec.
+# o A vector table is a table that has only one data row. It is often used to
+#   store bucket level profile data.
+# o The vector row is automatically initialized to all zero's or blank strings
+#   when a bucket is created (even if no data is imported).
+# o "merge" attributes (see table spec above) can be used in the column spec.
+#   However, no "+KEY" is necessary, it is implicit for a vector.
+#
+@Vector:Profile
+s,pkey:user_cookie
+l,+bor:flag_1
+l,+bor:flag_2
+l,+add:sum_1
+l,+add:sum_2
+
+# "@Var:" starts the Var table spec.
+# o A var table holds a single row of data. The columns (or vars) are global
+#   and NOT bucket specific.
+# o There can only be one Var table spec.
+# o Var columns can be used in most "aq_udb" operations. See the "aq_udb"
+#   manual for details.
+# o Even though there is no table name in the spec, the Var table can be
+#   referenced using the pseudo table name "var".
+# o Columns in this table are initialized to zero/blank. They can also be
+#   reset to zero/blank at any time using "aq_udb -clr var".
+# o Columns in this table can be set using
+#   "aq_udb -scn var -var ColName ColVal -var ColName ColVal ...".
+# o Columns in this table can be exported using "aq_udb -exp var"
+#   o During export, the "merge" attributes are used to combine data rows from
+#     multiple Udb servers.
+# o "merge" attributes (see table spec above) can be used in the column spec.
+#   Because of the special properties of this table, merge is done during
+#   export and not import.
+#
+@Var:
+s:g_str_1
+l,+bor:g_flag_1
+l,+bor:g_flag_2
+l,+add:g_sum_1
+l,+add:g_sum_2
+
+#
+# More tables/vector as needed. But there can only be one Var table.
+#
